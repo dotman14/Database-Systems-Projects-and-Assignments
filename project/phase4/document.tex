@@ -1,0 +1,208 @@
+\documentclass[12pt]{article}
+
+\usepackage[margin=0.6in]{geometry}
+\setlength{\parindent}{0em}
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+	language=SQL,
+	aboveskip=6mm,
+	belowskip=6mm,
+	showstringspaces=false,
+	columns=flexible,
+	basicstyle={\small\ttfamily},
+	numbers=none, 
+	numberstyle=\tiny\color{gray},
+	keywordstyle=\color{blue},
+	commentstyle=\color{dkgreen},
+	numbersep=5pt
+}
+
+\author{
+	\textbf{Oyedotun Oyesanmi } 
+	\and 
+	\textbf{Ming-Zhen Ling}}
+\title{Database Management System - Project\\Phase 3}
+\begin{document}
+	\maketitle
+	\pagebreak
+	
+	
+\begin{lstlisting}
+-- Oyedotun Oyesanmi and Ming-Zhen Liang
+--Query 1
+WITH sel(p_id) 
+AS 
+(
+   SELECT "User".ID 
+   FROM "User" 
+   WHERE FIRST_NAME = 'Jim' 
+   AND LAST_NAME = 'Champ'
+),
+les(i, ct) 
+AS 
+(
+   SELECT TRC.TUTOR_USER_ID, count(DISTINCT TRC.COURSE_CODE || TRC.COURSE_NUMBER)
+   FROM TUTOR_RESPONSIBLE_COURSES TRC 
+   GROUP BY TRC.TUTOR_USER_ID
+)
+SELECT i 
+FROM les 
+JOIN sel 
+ON i != p_id
+WHERE
+(
+SELECT count(DISTINCT COURSE_CODE || COURSE_NUMBER)
+FROM TUTOR_RESPONSIBLE_COURSES
+WHERE TUTOR_USER_ID IN (p_id, i)) =
+(
+    SELECT min(ct) 
+    FROM les 
+    WHERE les.i IN (p_id)
+)
+	\end{lstlisting}
+	
+	
+\begin{lstlisting}
+--Query 2
+SELECT UNIVERSITY.NAME, count(ACADEMIC_UNIT.UNIT_CAMPUS_ID)
+FROM UNIVERSITY
+INNER JOIN CAMPUS
+   ON UNIVERSITY.ID = CAMPUS.UNIVERSITY_ID
+INNER JOIN ACADEMIC_UNIT
+   ON CAMPUS.ID = ACADEMIC_UNIT.UNIT_CAMPUS_ID
+GROUP BY UNIVERSITY.NAME
+\end{lstlisting}
+
+\pagebreak
+
+\begin{lstlisting}
+--Query 3
+SELECT UNIVERSITY.NAME, count(ACADEMIC_UNIT.UNIT_CAMPUS_ID)
+FROM UNIVERSITY
+LEFT OUTER JOIN CAMPUS
+   ON UNIVERSITY.ID = CAMPUS.UNIVERSITY_ID
+LEFT OUTER JOIN ACADEMIC_UNIT
+   ON CAMPUS.ID = ACADEMIC_UNIT.UNIT_CAMPUS_ID
+GROUP BY UNIVERSITY.NAME
+\end{lstlisting}
+
+
+\begin{lstlisting}
+--Query 4
+SELECT "User".FIRST_NAME, "User".LAST_NAME
+FROM "User"
+INNER JOIN FACULTY
+   ON "User".ID = FACULTY.USER_ID
+INNER JOIN STUDENT
+   ON FACULTY.USER_ID = STUDENT.USER_ID
+\end{lstlisting}
+
+
+\begin{lstlisting}
+--Query 5
+SELECT "User".FIRST_NAME, "User".LAST_NAME
+FROM "User"
+WHERE ID IN
+(
+  SELECT TUTOR.USER_ID
+  FROM TUTOR
+  WHERE TUTOR.UNIT_COLLEGE_ID =
+  (
+    SELECT COLLEGE.UNIT_CLLGE_ID
+	   FROM COLLEGE
+	WHERE COLLEGE.ID = 'CLAS'
+  )
+)
+\end{lstlisting}
+
+\pagebreak
+
+\begin{lstlisting}
+--Query 6
+
+CREATE VIEW R1
+AS
+(
+	SELECT UNIT.UNIT_CLLGE_ID
+	FROM UNIT
+	WHERE UNIT.CAMPUS_ID = 'IUSB'
+	AND UNIT.ID = 'CS'
+);
+
+CREATE VIEW T1
+AS
+(
+	SELECT sum(ONCALL.HOURS) AS Hours, ONCALL.TUTOR_USER_ID AS Tut_ID, ONCALL.ID AS ID
+	FROM ONCALL
+	NATURAL JOIN R1
+	WHERE ONCALL.ONCALLDATE >= TO_DATE('05-01-2005', 'MM/DD/YY')
+	AND ONCALL.ONCALLDATE <= TO_DATE('05-30-2005', 'MM/DD/YY')
+	AND ONCALL.STATUS = '3'
+	AND ONCALL.TUTOR_USER_ID = 9003
+	GROUP BY ONCALL.TUTOR_USER_ID, ONCALL.ID
+)
+
+CREATE VIEW T2
+AS
+(
+	SELECT sum(HOURS) AS Hours, TUTOR_USER_ID AS Tut_ID, ID AS HiD
+	FROM APPT
+	NATURAL JOIN R1
+	WHERE APPTDATE >= TO_DATE('05-01-2005', 'MM/DD/YY')
+	AND APPTDATE <= TO_DATE('05-30-2005', 'MM/DD/YY')
+	AND STATUS = '3'
+	AND TUTOR_USER_ID = 9003
+	GROUP BY TUTOR_USER_ID, ID
+)
+
+CREATE VIEW R231
+AS
+(
+	SELECT TUTSESSION.UNIT_CLLGE_ID, TUTSESSION.ID, TUTSESSION.HOURS, TUTSESSION.TUTSESSIONDATE
+	FROM R1
+	JOIN TUTSESSION
+	ON R1.UNIT_CLLGE_ID = TUTSESSION.UNIT_CLLGE_ID
+)
+
+CREATE VIEW R232
+AS
+(
+	SELECT R231.UNIT_CLLGE_ID, R231.ID, R231.HOURS, R231.TUTSESSIONDATE
+	FROM R231
+	WHERE R231.TUTSESSIONDATE >= TO_DATE('05-01-2005', 'MM/DD/YY')
+	AND R231.TUTSESSIONDATE <= TO_DATE('05-30-2005', 'MM/DD/YY')
+)
+
+CREATE VIEW R233
+AS
+(
+	SELECT *
+	FROM R232
+	JOIN TUTOR_ASSIGNED_TUTSESSION
+	ON R232.UNIT_CLLGE_ID = TUTOR_ASSIGNED_TUTSESSION.SESSION_UNIT_CLLGE_ID
+	AND R232.ID = TUTOR_ASSIGNED_TUTSESSION.SESSION_ID
+)
+
+CREATE VIEW T3
+AS
+(
+	SELECT sum(HOURS) AS Hours, TUTOR_USER_ID AS Tutor_ID, ID
+	FROM R233
+	WHERE R233.STATUS = '3'
+	AND R233.TUTOR_USER_ID = 9003
+	GROUP BY TUTOR_USER_ID, ID
+)
+
+SELECT 
+T1.Hours + T2.Hours + T3.Hours
+AS Total
+FROM T1, T2, T3
+\end{lstlisting}
+
+\end{document}
